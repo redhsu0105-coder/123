@@ -3,40 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GPX 種花路徑產生器</title>
+    <title>GPX 全球通用種花工具 - 中點加強版</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; line-height: 1.6; background: #f4f4f9; }
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        textarea { width: 100%; height: 150px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; padding: 10px; box-sizing: border-box; }
-        .controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        select, input, button { padding: 10px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; }
-        button { background: #007bff; color: white; border: none; cursor: pointer; transition: 0.3s; }
-        button:hover { background: #0056b3; }
-        .info { font-size: 0.9em; color: #666; margin-bottom: 5px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; line-height: 1.6; background: #f0f2f5; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #1a73e8; margin-top: 0; text-align: center; }
+        textarea { width: 100%; height: 180px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; padding: 12px; box-sizing: border-box; font-family: monospace; font-size: 13px; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .full-width { grid-column: span 2; }
+        label { display: block; font-size: 0.85em; color: #555; margin-bottom: 5px; font-weight: bold; }
+        select, input, button { padding: 12px; font-size: 15px; border-radius: 6px; border: 1px solid #ddd; width: 100%; box-sizing: border-box; }
+        button { background: #1a73e8; color: white; border: none; cursor: pointer; font-weight: bold; margin-top: 10px; transition: 0.2s; }
+        button:hover { background: #1557b0; }
+        .footer-info { font-size: 0.8em; color: #888; text-align: center; margin-top: 20px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>GPX 路徑產生器</h2>
+    <h2>GPX 種花路徑小工具</h2>
     
-    <div class="info">1. 輸入座標 (格式: 緯度, 經度，每行一組):</div>
+    <label>1. 輸入原始座標 (緯度, 經度):</label>
     <textarea id="coordsInput" placeholder="60.1228700, 11.4626370&#10;60.1206390, 11.4612330"></textarea>
 
     <div class="controls">
-        <div class="info">2. 設定國家/地名與編號:</div>
-        <input type="text" id="locName" placeholder="例如: 挪威Nes" value="挪威Nes">
-        <input type="text" id="locID" placeholder="編號 (XX)" value="XX">
-        
-        <div class="info">3. 選擇路徑模式:</div>
-        <select id="mode">
-            <option value="flower_pass2">種花路徑 + 單純經過兩次</option>
-            <option value="flower_only">僅種花路徑</option>
-            <option value="pass_only">僅單純經過座標</option>
-        </select>
-        
-        <button onclick="generateGPX()">產生並下載 GPX</button>
+        <div>
+            <label>國家地名:</label>
+            <input type="text" id="locName" value="挪威Nes">
+        </div>
+        <div>
+            <label>編號 (XX):</label>
+            <input type="text" id="locID" value="XX">
+        </div>
+        <div>
+            <label>種花半徑 (公尺):</label>
+            <input type="number" id="radius" value="30">
+        </div>
+        <div>
+            <label>路徑模式:</label>
+            <select id="mode">
+                <option value="flower_pass2">種花路徑 + 單純經過兩次</option>
+                <option value="flower_only">僅種花路徑</option>
+                <option value="pass_only">僅單純經過座標</option>
+            </select>
+        </div>
+        <button class="full-width" onclick="generateGPX()">產生並下載 GPX 檔案</button>
     </div>
+    <div class="footer-info">※ 已加入首尾「起終點中點」緩衝，自動校正全球緯經比例。</div>
 </div>
 
 <script>
@@ -45,8 +58,9 @@ function generateGPX() {
     const locName = document.getElementById('locName').value || "Location";
     const locID = document.getElementById('locID').value || "XX";
     const mode = document.getElementById('mode').value;
+    const radius = parseFloat(document.getElementById('radius').value) || 30;
     
-    if (!input) { alert("請輸入座標！"); return; }
+    if (!input) { alert("請貼入座標內容！"); return; }
 
     const lines = input.split('\n');
     const rawCoords = lines.map(l => {
@@ -55,65 +69,68 @@ function generateGPX() {
     }).filter(c => c !== null);
 
     const count = rawCoords.length;
+    if (count === 0) return;
+
+    // 計算首尾中點
+    const midPoint = {
+        lat: (rawCoords[0].lat + rawCoords[count-1].lat) / 2,
+        lon: (rawCoords[0].lon + rawCoords[count-1].lon) / 2
+    };
+
     let gpxPoints = "";
     const fileName = `${locName}${locID}_${count}苗.gpx`;
 
-    // 運算邏輯
     const getFlowerPoints = (center, index) => {
         let pts = "";
-        const radius = 30; // 公尺
         const latOffset = radius / 111000;
         const lonOffset = radius / (111000 * Math.cos(center.lat * Math.PI / 180));
         const angles = [0, 60, 120, 180, 240, 300];
 
-        // 0. 起點
         pts += `<wpt lat="${center.lat}" lon="${center.lon}"><name>P${index}-F0</name></wpt>\n`;
-        // 1-6. 圓周
         angles.forEach((angle, i) => {
             const rad = (90 - angle) * Math.PI / 180;
             const lat = center.lat + latOffset * Math.sin(rad);
             const lon = center.lon + lonOffset * Math.cos(rad);
             pts += `<wpt lat="${lat.toFixed(7)}" lon="${lon.toFixed(7)}"><name>P${index}-F${i+1}</name></wpt>\n`;
         });
-        // 7. 偏移 (東平移5公尺)
         const offsetLon = center.lon + (5 / (111000 * Math.cos(center.lat * Math.PI / 180)));
-        pts += `<wpt lat="${center.lat}" lon="${offsetLon.toFixed(7)}"><name>P${index}-F7-Offset</name></wpt>\n`;
-        // 8. 回到中心
-        pts += `<wpt lat="${center.lat}" lon="${center.lon}"><name>P${index}-F8-End</name></wpt>\n`;
+        pts += `<wpt lat="${center.lat}" lon="${offsetLon.toFixed(7)}"><name>P${index}-F7</name></wpt>\n`;
+        pts += `<wpt lat="${center.lat}" lon="${center.lon}"><name>P${index}-F8</name></wpt>\n`;
         return pts;
     };
 
-    const getSimplePass = (coords, suffix) => {
-        return coords.map((c, i) => `<wpt lat="${c.lat}" lon="${c.lon}"><name>P${i+1}-Pass-${suffix}</name></wpt>\n`).join('');
-    };
+    // --- 構建邏輯 ---
+    
+    // 1. 全域起點：首尾座標的中點
+    gpxPoints += `<wpt lat="${midPoint.lat.toFixed(7)}" lon="${midPoint.lon.toFixed(7)}"><name>MID_START</name></wpt>\n`;
 
-    // 根據模式組合 WPT
+    // 2. 第一階段：種花
     if (mode === 'flower_pass2' || mode === 'flower_only') {
-        rawCoords.forEach((c, i) => { gpxPoints += getFlowerPoints(c, i + 1); });
+        rawCoords.forEach((c, i) => {
+            gpxPoints += getFlowerPoints(c, i + 1);
+        });
     }
     
+    // 3. 第二階段：單次經過
     if (mode === 'flower_pass2') {
-        gpxPoints += getSimplePass(rawCoords, "2nd");
-        gpxPoints += getSimplePass(rawCoords, "3rd");
+        rawCoords.forEach((c, i) => { gpxPoints += `<wpt lat="${c.lat}" lon="${c.lon}"><name>P${i+1}-2nd</name></wpt>\n`; });
+        rawCoords.forEach((c, i) => { gpxPoints += `<wpt lat="${c.lat}" lon="${c.lon}"><name>P${i+1}-3rd</name></wpt>\n`; });
     } else if (mode === 'pass_only') {
-        gpxPoints += getSimplePass(rawCoords, "1st");
+        rawCoords.forEach((c, i) => { gpxPoints += `<wpt lat="${c.lat}" lon="${c.lon}"><name>P${i+1}-Pass</name></wpt>\n`; });
     }
+
+    // 4. 全域終點：首尾座標的中點
+    gpxPoints += `<wpt lat="${midPoint.lat.toFixed(7)}" lon="${midPoint.lon.toFixed(7)}"><name>MID_END</name></wpt>\n`;
 
     const gpxHeader = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Gemini Flower Tool" xmlns="http://www.topografix.com/GPX/1/1">
 <metadata><name>${locName}${locID}/${count}苗</name></metadata>\n`;
-    const gpxFooter = `</gpx>`;
-    const fullGpx = gpxHeader + gpxPoints + gpxFooter;
+    const fullGpx = gpxHeader + gpxPoints + `</gpx>`;
 
-    // 下載檔案
     const blob = new Blob([fullGpx], { type: 'application/gpx+xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    a.href = url; a.download = fileName; a.click();
     URL.revokeObjectURL(url);
 }
 </script>
