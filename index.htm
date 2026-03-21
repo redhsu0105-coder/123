@@ -3,84 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌈 GPX 夢幻地圖助手</title>
+    <title>🌈 GPX 夢幻地圖助手 - 土耳其格式優化版</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #FF85A1; --secondary: #77DDFF; --bg: #FFF5F7; }
-        body { font-family: "Microsoft JhengHei", sans-serif; max-width: 900px; margin: 20px auto; padding: 0 20px; background: var(--bg); color: #555; }
-        .card { background: white; padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(255,133,161,0.1); margin-bottom: 20px; border: 3px solid #FFD1DC; }
-        h2 { color: var(--primary); margin-top: 0; display: flex; align-items: center; gap: 10px; }
-        textarea { width: 100%; height: 120px; margin: 10px 0; border: 2px solid #FFE4E1; border-radius: 15px; padding: 12px; box-sizing: border-box; outline: none; }
+        :root {
+            --primary: #FF85A1;
+            --secondary: #77DDFF;
+            --path-color: #800000; /* 酒紅色路徑 */
+            --bg: #FFF5F7;
+            --card-bg: #FFFFFF;
+        }
+        body { font-family: "Microsoft JhengHei", sans-serif; max-width: 900px; margin: 20px auto; padding: 0 20px; background-color: var(--bg); color: #555; }
+        .card { background: var(--card-bg); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(255, 133, 161, 0.1); margin-bottom: 20px; border: 3px solid #FFD1DC; }
+        h2 { color: var(--primary); margin-top: 0; display: flex; align-items: center; gap: 10px; font-size: 1.4rem; }
+        textarea { width: 100%; height: 120px; margin: 10px 0; border: 2px solid #FFE4E1; border-radius: 15px; padding: 12px; box-sizing: border-box; font-family: monospace; outline: none; }
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .full-width { grid-column: span 2; }
-        select, input, button { padding: 12px; border-radius: 12px; border: 2px solid #F0F0F0; width: 100%; box-sizing: border-box; outline: none; }
-        button { background: linear-gradient(135deg, var(--primary), #FF6B81); color: white; border: none; cursor: pointer; font-weight: bold; margin-top: 10px; box-shadow: 0 5px 15px rgba(255,133,161,0.3); }
-        /* 地圖樣式 */
+        label { display: block; font-size: 0.85em; color: #886666; margin-bottom: 5px; font-weight: bold; }
+        select, input { padding: 12px; font-size: 14px; border-radius: 12px; border: 2px solid #F0F0F0; width: 100%; box-sizing: border-box; background: #FAFAFA; outline: none; }
+        button { background: linear-gradient(135deg, var(--primary), #FF6B81); color: white; border: none; cursor: pointer; font-weight: bold; padding: 14px; border-radius: 12px; font-size: 16px; box-shadow: 0 5px 15px rgba(255, 133, 161, 0.3); transition: 0.3s; margin-top: 10px; }
+        button:hover { transform: scale(1.01); filter: brightness(1.05); }
         #map { height: 400px; width: 100%; border-radius: 20px; border: 3px solid #FFD1DC; margin-top: 15px; z-index: 1; }
-        .file-box { background: #FFF9FA; border: 3px dashed #FFD1DC; padding: 20px; text-align: center; border-radius: 20px; cursor: pointer; color: var(--primary); font-weight: bold; }
+        .file-box { background: #FFF9FA; border: 3px dashed #FFD1DC; padding: 25px; text-align: center; border-radius: 20px; cursor: pointer; color: var(--primary); font-weight: bold; }
+        #fileStatus { margin-top: 10px; font-weight: bold; text-align: center; color: #50C878; }
         .footer-info { font-size: 0.8em; color: #BBAAAA; text-align: center; margin-top: 20px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>🗺️ 路徑即時預覽</h2>
+    <h2>🗺️ 路徑即時預覽 (酒紅線)</h2>
     <div id="map"></div>
-    <p style="font-size: 0.8em; text-align: center; color: #888;">✨ 貼入座標或上傳檔案後，地圖會自動更新路徑 ✨</p>
 </div>
 
 <div class="card">
-    <h2>🌸 功能 1~3：種花路徑產生器</h2>
-    <label>🍭 貼入座標 (緯度, 經度):</label>
-    <textarea id="coordsInput" oninput="updatePreviewFromText()" placeholder="60.1228700, 11.4626370"></textarea>
+    <h2>🌺 功能 1~3：種花路徑產生器</h2>
+    <label>🍭 請貼入原始座標 (緯度, 經度):</label>
+    <textarea id="coordsInput" oninput="updatePreviewFromText()" placeholder="例如：39.9334, 32.8597"></textarea>
 
     <div class="controls">
-        <div><label>📍 地名</label><input type="text" id="locName" value="挪威Nes"></div>
-        <div><label>🆔 編號</label><input type="text" id="locID" value="XX"></div>
-        <div><label>📏 半徑(m)</label><input type="number" id="radius" value="30" oninput="updatePreviewFromText()"></div>
+        <div><label>📍 國家地名</label><input type="text" id="locName" value="土耳其"></div>
+        <div><label>🆔 編號</label><input type="text" id="locID" value="01"></div>
+        <div><label>📏 種花半徑 (m)</label><input type="number" id="radius" value="30" oninput="updatePreviewFromText()"></div>
         <div>
-            <label>🎡 模式</label>
+            <label>🎡 路徑模式</label>
             <select id="mode" onchange="updatePreviewFromText()">
-                <option value="flower_pass2">種花 + 回訪二次 ✨</option>
-                <option value="flower_only">純種花模式 🌺</option>
-                <option value="pass_only">純座標路徑 🚶</option>
+                <option value="flower_pass2">種花 + 回訪二次 (Z串) ✨</option>
+                <option value="flower_only">純種花模式 (Z) 🌺</option>
+                <option value="pass_only">純座標路徑 (果) 🚶</option>
             </select>
         </div>
-        <button class="full-width" onclick="generateGPX()">確認無誤，下載 GPX 🎀</button>
+        <button class="full-width" onclick="generateGPX()">確認無誤，下載夢幻 GPX 🎀</button>
     </div>
 </div>
 
 <div class="card">
     <h2>☁️ 功能 4：GPX 轉換大師</h2>
     <div class="file-box" onclick="document.getElementById('fileInput').click()">
-        ✨ 點擊上傳 Joystick GPX 轉換並預覽 ✨
+        ✨ 點擊上傳並預覽轉換 ✨
         <input type="file" id="fileInput" accept=".gpx" style="display:none" onchange="convertAndPreview(this)">
     </div>
-    <div id="fileStatus" style="text-align: center; margin-top: 10px; color: #50C878; font-weight: bold;"></div>
+    <div id="fileStatus"></div>
 </div>
+
+<p class="footer-info">☁️ 具備中點緩衝 ‧ 酒紅路徑連線 ‧ 您的個人 GPX 助手 ☁️</p>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// 初始化地圖 (預設定位在挪威)
-var map = L.map('map').setView([60.122, 11.462], 13);
+var map = L.map('map').setView([39.93, 32.86], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 var previewLayer = L.layerGroup().addTo(map);
 
 function updatePreview(coords, mode, radius) {
     previewLayer.clearLayers();
     if (coords.length === 0) return;
-
     let pathPoints = [];
-    const mid = { lat: (coords[0].lat + coords[coords.length-1].lat)/2, lon: (coords[0].lon + coords[coords.length-1].lon)/2 };
+    const mid = { lat: (coords[0].lat + coords[coords.length-1].lat) / 2, lon: (coords[0].lon + coords[coords.length-1].lon) / 2 };
     
-    // 繪製 MID 點
-    L.circleMarker([mid.lat, mid.lon], {color: '#FFB347', radius: 8}).addTo(previewLayer).bindPopup("MID 點 (起/終)");
     pathPoints.push([mid.lat, mid.lon]);
-
     coords.forEach((c, i) => {
-        // 標記原始點
-        L.circleMarker([c.lat, c.lon], {color: '#FF85A1', radius: 5}).addTo(previewLayer).bindPopup(`P${i+1}`);
-        
+        L.circleMarker([c.lat, c.lon], {color: 'var(--primary)', radius: 5}).addTo(previewLayer);
+        pathPoints.push([c.lat, c.lon]);
         if (mode.includes('flower')) {
             const latOff = radius / 111000;
             const lonOff = radius / (111000 * Math.cos(c.lat * Math.PI / 180));
@@ -88,16 +91,12 @@ function updatePreview(coords, mode, radius) {
                 const rad = (90 - a) * Math.PI / 180;
                 pathPoints.push([c.lat + latOff * Math.sin(rad), c.lon + lonOff * Math.cos(rad)]);
             });
-            pathPoints.push([c.lat, c.lon]); // 回中心
-        } else {
             pathPoints.push([c.lat, c.lon]);
         }
     });
-    
-    pathPoints.push([mid.lat, mid.lon]); // 回 MID 終點
+    pathPoints.push([mid.lat, mid.lon]);
 
-    // 畫出連線
-    var polyline = L.polyline(pathPoints, {color: '#77DDFF', weight: 3, opacity: 0.7}).addTo(previewLayer);
+    var polyline = L.polyline(pathPoints, {color: '#800000', weight: 3, opacity: 0.8}).addTo(previewLayer);
     map.fitBounds(polyline.getBounds(), {padding: [20, 20]});
 }
 
@@ -122,14 +121,13 @@ function convertAndPreview(input) {
         let nodes = xml.getElementsByTagName("trkpt");
         if (nodes.length === 0) nodes = xml.getElementsByTagName("rtept");
         if (nodes.length === 0) nodes = xml.getElementsByTagName("wpt");
-        
         let coords = [];
         for (let i = 0; i < nodes.length; i++) {
             coords.push({ lat: parseFloat(nodes[i].getAttribute("lat")), lon: parseFloat(nodes[i].getAttribute("lon")) });
         }
         updatePreview(coords, 'pass_only', 0);
-        document.getElementById('fileStatus').innerText = `已載入 ${coords.length} 個點，預覽中 ✨`;
-        window.lastConvertedCoords = coords; // 暫存以便下載
+        document.getElementById('fileStatus').innerText = `✅ 成功載入 ${coords.length} 苗！`;
+        window.lastConvertedCoords = coords;
     };
     reader.readAsText(file);
 }
@@ -147,13 +145,20 @@ function generateGPX() {
     }).filter(c => c !== null);
 
     if (coords.length === 0 && window.lastConvertedCoords) coords = window.lastConvertedCoords;
-    if (coords.length === 0) { alert("沒有座標可以下載喔！"); return; }
+    if (coords.length === 0) { alert("請先輸入座標喔！"); return; }
 
-    const gpxContent = processCoordinates(coords, mode, radius);
-    downloadGPX(gpxContent, `${locName}${locID}_${coords.length}苗.gpx`, `${locName}${locID}/${coords.length}苗`);
+    // --- 檔名後綴邏輯修正 ---
+    let suffix = "";
+    if (mode === "pass_only") suffix = "_"+coords.length+"苗(果)";
+    else if (mode === "flower_pass2") suffix = "_"+coords.length+"苗_Z串";
+    else if (mode === "flower_only") suffix = "_"+coords.length+"苗_Z";
+
+    const fileName = `${locName}${locID}${suffix}.gpx`;
+    const metaName = `${locName}${locID}/${coords.length}苗`;
+
+    downloadGPX(processCoordinates(coords, mode, radius), fileName, metaName);
 }
 
-// (保留之前的 processCoordinates, downloadGPX 函數邏輯...)
 function processCoordinates(coords, mode, radius) {
     let pts = "";
     const mid = { lat: (coords[0].lat + coords[coords.length-1].lat) / 2, lon: (coords[0].lon + coords[coords.length-1].lon) / 2 };
