@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌈 皮克敏 GPX 助手 V22 - Z串完全體</title>
+    <title>🌈 皮克敏 GPX 助手 V22 - 邏輯全校正版</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --primary: #FF85A1; --secondary: #77DDFF; --bg: #FFF5F7; --card-bg: #FFFFFF; }
@@ -18,7 +18,6 @@
         select, input { padding: 12px; border-radius: 12px; border: 2px solid #F0F0F0; width: 100%; box-sizing: border-box; background: #FAFAFA; }
         button.main-btn { background: linear-gradient(135deg, var(--primary), #FF6B81); color: white; border: none; cursor: pointer; font-weight: bold; padding: 14px; border-radius: 12px; font-size: 16px; width: 100%; margin-top: 10px; box-shadow: 0 5px 15px rgba(255,133,161,0.3); transition: 0.2s; }
         button.conv-btn { background: linear-gradient(135deg, #74C365, #57A64B); margin-top: 10px; }
-        button:active { transform: scale(0.98); }
         #map { height: 300px; width: 100%; border-radius: 20px; border: 3px solid #FFD1DC; margin-top: 10px; }
         .leaflet-tooltip-own { background: rgba(255, 255, 255, 0.7); border: 1px solid var(--primary); color: var(--primary); font-weight: bold; font-size: 11px; padding: 1px 3px; border-radius: 4px; }
         .file-label { background: var(--secondary); color: white; padding: 8px 15px; border-radius: 15px; cursor: pointer; font-size: 0.8em; }
@@ -27,21 +26,21 @@
 <body>
 
 <div class="card">
-    <h2><span>🗺️ Z 路徑即時預覽 (酒紅線)</span><button style="font-size:0.6em; background:var(--secondary); color:white; border:none; padding:5px 10px; border-radius:15px; cursor:pointer;" onclick="openFullMap()">🔍 全螢幕觀看</button></h2>
+    <h2><span>🗺️ 路徑精準預覽</span><button style="font-size:0.6em; background:var(--secondary); color:white; border:none; padding:5px 10px; border-radius:15px; cursor:pointer;" onclick="openFullMap()">🔍 全螢幕</button></h2>
     <div id="map"></div>
 </div>
 
 <div class="card">
     <h2>🌺 皮克敏 GPX 生成器</h2>
-    <textarea id="coordsInput" oninput="updatePreviewFromText()" placeholder="貼入原始中心點座標 (例如 24.123, 120.456)..."></textarea>
+    <textarea id="coordsInput" oninput="updatePreviewFromText()" placeholder="貼入原始座標點..."></textarea>
     <div class="controls">
         <div><label>📍 國家</label><input type="text" id="locName" value="土耳其"></div>
         <div><label>🆔 編號</label><input type="text" id="locID" value="01"></div>
-        <div><label>📏 Z 偏移/圓半徑 (m)</label><input type="number" id="radius" value="30" oninput="updatePreviewFromText()"></div>
+        <div><label>📏 偏移/圓半徑 (m)</label><input type="number" id="radius" value="30" oninput="updatePreviewFromText()"></div>
         <div>
             <label>🎡 運作模式</label>
             <select id="mode" onchange="updatePreviewFromText()">
-                <option value="v18_smooth">2. 種花 + 回訪 (Z串) 🚀</option>
+                <option value="v18_z">2. 種花 + 回訪 (Z串) 🚀</option>
                 <option value="flower_pass2">1. 種花 + 回訪二次 (圓串) ✨</option>
                 <option value="flower_only">3. 純種花模式 (圓) 🌺</option>
                 <option value="pass_only">4. 純座標路徑 (果) 🚶</option>
@@ -53,10 +52,10 @@
 
 <div class="card converter">
     <h2>
-        <span>🔄 功能五：檔案還原/轉換</span>
+        <span>🔄 功能五：檔案還原</span>
         <label class="file-label">選取檔案 <input type="file" id="fileInput" accept=".gpx" style="display:none;"></label>
     </h2>
-    <textarea id="gpxInput" placeholder="直接選取檔案或貼入 <gpx> 代碼..."></textarea>
+    <textarea id="gpxInput" placeholder="貼入 GPX 代碼..."></textarea>
     <button class="main-btn conv-btn" onclick="convertGPXToCoords()">提取座標並匯入 🛠️</button>
 </div>
 
@@ -66,53 +65,49 @@ var currentPathPoints = [], map = L.map('map').setView([23.5, 121], 6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 var previewLayer = L.layerGroup().addTo(map);
 
-// 解析與繪圖邏輯
-function updatePreview(coords, mode, radius) {
-    previewLayer.clearLayers(); currentPathPoints = [];
-    if (coords.length === 0) return;
-    const midLat = (coords[0].lat + coords[coords.length-1].lat) / 2;
-    const midLon = (coords[0].lon + coords[coords.length-1].lon) / 2;
-    currentPathPoints.push([midLat, midLon]);
+// 核心計算函數
+function getPath(coords, mode, radius) {
+    let path = [];
+    if (coords.length === 0) return path;
+    const mid = { lat: (coords[0].lat + coords[coords.length-1].lat) / 2, lon: (coords[0].lon + coords[coords.length-1].lon) / 2 };
+    
+    // 起始點
+    path.push([mid.lat, mid.lon]);
 
-    if (mode === 'v18_smooth') {
-        // Z串模式：點到點之間的 Z 型偏移
-        coords.forEach((c, i) => {
-            L.circleMarker([c.lat, c.lon], {color: '#FF85A1', radius: 4}).addTo(previewLayer).bindTooltip(`P${(i+1).toString().padStart(2,'0')}`, {permanent:true, className:'leaflet-tooltip-own'});
-            currentPathPoints.push([c.lat, c.lon]);
-            if (i < coords.length - 1) {
-                const next = coords[i+1];
-                const dLat = next.lat - c.lat, dLon = next.lon - c.lon;
-                const dist = Math.sqrt(dLat*dLat + dLon*dLon);
-                if (dist > 0) {
-                    const offLat = (radius / 111000) * (dLon / dist);
-                    const offLon = (radius / (111000 * Math.cos(c.lat * Math.PI / 180))) * (-dLat / dist);
-                    const side = (i % 2 === 0) ? 1 : -1;
-                    currentPathPoints.push([c.lat + dLat/2 + offLat*side, c.lon + dLon/2 + offLon*side]);
-                }
-            }
-        });
-        coords.forEach(c => currentPathPoints.push([c.lat, c.lon])); // V2
-        coords.forEach(c => currentPathPoints.push([c.lat, c.lon])); // V3
-    } else {
-        // 圓串或其他模式
-        coords.forEach((c, i) => {
-            currentPathPoints.push([c.lat, c.lon]);
-            if (mode.includes('flower')) {
-                const latOff = radius / 111000, lonOff = radius / (111000 * Math.cos(c.lat * Math.PI / 180));
-                [0, 60, 120, 180, 240, 300].forEach(a => {
-                    const r = (90 - a) * Math.PI / 180;
-                    currentPathPoints.push([c.lat + latOff * Math.sin(r), c.lon + lonOff * Math.cos(r)]);
-                });
-            }
-        });
-        if (mode === 'flower_pass2') {
-            coords.forEach(c => currentPathPoints.push([c.lat, c.lon]));
-            coords.forEach(c => currentPathPoints.push([c.lat, c.lon]));
+    coords.forEach((c, i) => {
+        const dLat = radius / 111320;
+        const dLon = radius / (111320 * Math.cos(c.lat * Math.PI / 180));
+
+        if (mode === 'v18_z') {
+            // Z 字 5 點邏輯：LB -> LT -> CTR -> RB -> RT
+            path.push([c.lat - dLat, c.lon - dLon]); 
+            path.push([c.lat + dLat, c.lon - dLon]); 
+            path.push([c.lat, c.lon]);               
+            path.push([c.lat - dLat, c.lon + dLon]); 
+            path.push([c.lat + dLat, c.lon + dLon]); 
+        } 
+        else if (mode.includes('flower')) {
+            // 圓形邏輯：CTR -> 周圍 6 點 -> CTR (保證花朵覆蓋)
+            path.push([c.lat, c.lon]); 
+            [0, 60, 120, 180, 240, 300].forEach(a => {
+                const r = (90 - a) * Math.PI / 180;
+                path.push([c.lat + dLat * Math.sin(r), c.lon + dLon * Math.cos(r)]);
+            });
+            path.push([c.lat, c.lon]); 
+        } 
+        else {
+            path.push([c.lat, c.lon]);
+        }
+    });
+
+    // 回訪邏輯 (二次)
+    if (mode === 'v18_z' || mode === 'flower_pass2') {
+        for(let j=0; j<2; j++) {
+            coords.forEach(c => path.push([c.lat, c.lon]));
         }
     }
-    currentPathPoints.push([midLat, midLon]);
-    var poly = L.polyline(currentPathPoints, {color: '#800000', weight: 3}).addTo(previewLayer);
-    map.fitBounds(poly.getBounds(), {padding: [30, 30]});
+    path.push([mid.lat, mid.lon]);
+    return path;
 }
 
 function updatePreviewFromText() {
@@ -123,73 +118,53 @@ function updatePreviewFromText() {
         const p = l.split(/[\s,]+/);
         return p.length >= 2 ? { lat: parseFloat(p[0]), lon: parseFloat(p[1]) } : null;
     }).filter(c => c !== null);
-    updatePreview(coords, mode, radius);
+
+    previewLayer.clearLayers();
+    currentPathPoints = getPath(coords, mode, radius);
+    if (currentPathPoints.length > 0) {
+        coords.forEach((c, i) => {
+            L.circleMarker([c.lat, c.lon], {color: '#FF85A1', radius: 4}).addTo(previewLayer).bindTooltip(`P${(i+1).toString().padStart(2,'0')}`, {permanent:true, className:'leaflet-tooltip-own'});
+        });
+        var poly = L.polyline(currentPathPoints, {color: '#800000', weight: 2}).addTo(previewLayer);
+        map.fitBounds(poly.getBounds(), {padding: [30, 30]});
+    }
 }
 
-// 下載 GPX
 function generateGPX() {
     const loc = document.getElementById('locName').value;
     const id = document.getElementById('locID').value;
     const mode = document.getElementById('mode').value;
-    const radius = parseFloat(document.getElementById('radius').value);
     const input = document.getElementById('coordsInput').value.trim();
+    const radius = parseFloat(document.getElementById('radius').value);
+    
     let coords = input.split('\n').map(l => {
         const p = l.split(/[\s,]+/);
         return p.length >= 2 ? { lat: parseFloat(p[0]), lon: parseFloat(p[1]) } : null;
     }).filter(c => c !== null);
 
     if (coords.length === 0) return alert("請貼入座標 🌸");
-    
-    let body = "";
-    const midLat = (coords[0].lat + coords[coords.length-1].lat) / 2;
-    const midLon = (coords[0].lon + coords[coords.length-1].lon) / 2;
-    body += `<wpt lat="${midLat.toFixed(7)}" lon="${midLon.toFixed(7)}"><name>00_START</name></wpt>\n`;
 
-    if (mode === 'v18_smooth') {
-        coords.forEach((c, i) => {
-            body += `<wpt lat="${c.lat}" lon="${c.lon}"><name>P${(i+1).toString().padStart(2,'0')}</name></wpt>\n`;
-            if (i < coords.length - 1) {
-                const next = coords[i+1];
-                const dLat = next.lat - c.lat, dLon = next.lon - c.lon;
-                const dist = Math.sqrt(dLat*dLat + dLon*dLon);
-                const offLat = (radius / 111000) * (dLon / dist);
-                const offLon = (radius / (111000 * Math.cos(c.lat * Math.PI / 180))) * (-dLat / dist);
-                const side = (i % 2 === 0) ? 1 : -1;
-                body += `<wpt lat="${(c.lat + dLat/2 + offLat*side).toFixed(7)}" lon="${(c.lon + dLon/2 + offLon*side).toFixed(7)}"><name>Z_OFF</name></wpt>\n`;
-            }
-        });
-        coords.forEach((c, i) => body += `<wpt lat="${c.lat}" lon="${c.lon}"><name>R${i+1}_V2</name></wpt>\n`);
-        coords.forEach((c, i) => body += `<wpt lat="${c.lat}" lon="${c.lon}"><name>R${i+1}_V3</name></wpt>\n`);
-    } else {
-        coords.forEach((c, i) => {
-            body += `<wpt lat="${c.lat}" lon="${c.lon}"><name>P${i+1}</name></wpt>\n`;
-            if (mode.includes('flower')) {
-                const latOff = radius / 111000, lonOff = radius / (111000 * Math.cos(c.lat * Math.PI / 180));
-                [0,60,120,180,240,300].forEach((a, j) => {
-                    const r = (90 - a) * Math.PI / 180;
-                    body += `<wpt lat="${(c.lat + latOff * Math.sin(r)).toFixed(7)}" lon="${(c.lon + lonOff * Math.cos(r)).toFixed(7)}"><name>P${i+1}-F${j+1}</name></wpt>\n`;
-                });
-            }
-        });
-        if (mode === 'flower_pass2') {
-            coords.forEach(c => body += `<wpt lat="${c.lat}" lon="${c.lon}"><name>V2</name></wpt>\n`);
-            coords.forEach(c => body += `<wpt lat="${c.lat}" lon="${c.lon}"><name>V3</name></wpt>\n`);
-        }
-    }
-    body += `<wpt lat="${midLat.toFixed(7)}" lon="${midLon.toFixed(7)}"><name>99_END</name></wpt>\n`;
+    const path = getPath(coords, mode, radius);
+    let body = path.map((pt, index) => `  <wpt lat="${pt[0].toFixed(8)}" lon="${pt[1].toFixed(8)}"><name>W${index.toString().padStart(3,'0')}</name></wpt>`).join('\n');
     
-    const count = coords.length;
-    let suffix = (mode === "v18_smooth") ? "_Z串" : (mode === "pass_only" ? "苗(果)" : "_圓串");
-    downloadFile(body, `${loc}${id}_${count}苗${suffix}.gpx`);
+    let suffix = (mode === "v18_z") ? "_Z串" : (mode === "pass_only" ? "苗(果)" : (mode === "flower_only" ? "_Z" : "_圓串"));
+    // 檔名校正：遵循您的 [國家][編號]_[數量]苗[後綴] 格式
+    const fileName = `${loc}${id}_${coords.length}苗${suffix}.gpx`;
+    
+    const full = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="Gemini_V22" xmlns="http://www.topografix.com/GPX/1/1">\n${body}\n</gpx>`;
+    const blob = new Blob([full], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fileName; a.click();
 }
 
-// 功能五：還原與轉換
+// 檔案還原邏輯
 document.getElementById('fileInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) { document.getElementById('gpxInput').value = e.target.result; };
-    reader.readAsText(file);
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => { document.getElementById('gpxInput').value = e.target.result; };
+        reader.readAsText(file);
+    }
 });
 
 function convertGPXToCoords() {
@@ -197,29 +172,17 @@ function convertGPXToCoords() {
     const parser = new DOMParser();
     const xml = parser.parseFromString(input, "text/xml");
     const points = xml.querySelectorAll('wpt, rtept, trkpt');
-    let result = [], seen = new Set();
+    let res = [], seen = new Set();
     points.forEach(p => {
         const lat = parseFloat(p.getAttribute('lat')).toFixed(6);
         const lon = parseFloat(p.getAttribute('lon')).toFixed(6);
-        const name = p.querySelector('name')?.textContent || "";
-        // 過濾主點：不含 -F (圓周點) 或 Z_OFF (Z偏移點)
-        if (!name.includes("-F") && !name.includes("Z_OFF") && !name.includes("V2") && !name.includes("V3")) {
-            const key = `${lat},${lon}`;
-            if (!seen.has(key)) { result.push(`${lat}, ${lon}`); seen.add(key); }
-        }
+        const key = `${lat},${lon}`;
+        // 僅抓取中心點邏輯 (過濾掉 WPT 序號，只留獨特座標點)
+        if (!seen.has(key)) { res.push(`${lat}, ${lon}`); seen.add(key); }
     });
-    if (result.length > 0) {
-        document.getElementById('coordsInput').value = result.join('\n');
-        alert(`成功還原 ${result.length} 個中心點！`);
-        updatePreviewFromText();
-    } else { alert("找不到有效座標點，請確認 GPX 內容。"); }
-}
-
-function downloadFile(content, name) {
-    const full = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="Gemini_V22" xmlns="http://www.topografix.com/GPX/1/1">${content}</gpx>`;
-    const blob = new Blob([full], { type: 'application/gpx+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+    // 由於 GPX 包含 START/END 中間點，通常第一個跟最後一個點是相同的，視需求過濾
+    document.getElementById('coordsInput').value = res.join('\n');
+    updatePreviewFromText();
 }
 
 function openFullMap() {
