@@ -2,93 +2,124 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>🌈 皮克敏 GPX 助手 V27 - 回訪偏移修正版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌈 GPX 夢幻地圖助手 - V31 全功能版</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #FF85A1; --secondary: #77DDFF; --bg: #FFF5F7; --card-bg: #FFFFFF; }
+        :root { --primary: #FF85A1; --secondary: #77DDFF; --path-color: #800000; --bg: #FFF5F7; --card-bg: #FFFFFF; }
         body { font-family: "Microsoft JhengHei", sans-serif; max-width: 900px; margin: 20px auto; padding: 0 20px; background-color: var(--bg); color: #555; }
-        .card { background: var(--card-bg); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(255,133,161,0.1); margin-bottom: 20px; border: 3px solid #FFD1DC; }
-        h2 { color: var(--primary); margin: 0 0 15px 0; display: flex; align-items: center; gap: 10px; font-size: 1.4rem; justify-content: space-between; }
-        textarea { width: 100%; height: 120px; margin: 10px 0; border: 2px solid #FFE4E1; border-radius: 15px; padding: 12px; box-sizing: border-box; outline: none; font-size: 13px; }
+        .card { background: var(--card-bg); padding: 25px; border-radius: 25px; box-shadow: 0 10px 25px rgba(255, 133, 161, 0.1); margin-bottom: 20px; border: 3px solid #FFD1DC; position: relative; }
+        h2 { color: var(--primary); margin-top: 0; display: flex; align-items: center; gap: 10px; font-size: 1.4rem; justify-content: space-between; }
+        .btn-pop { font-size: 0.6em; background: var(--secondary); color: white; padding: 5px 12px; border-radius: 20px; cursor: pointer; text-decoration: none; border: none; font-weight: bold; }
+        textarea { width: 100%; height: 120px; margin: 10px 0; border: 2px solid #FFE4E1; border-radius: 15px; padding: 12px; box-sizing: border-box; outline: none; }
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         label { display: block; font-size: 0.85em; color: #886666; margin-bottom: 5px; font-weight: bold; }
-        select, input { padding: 12px; border-radius: 12px; border: 2px solid #F0F0F0; width: 100%; box-sizing: border-box; background: #FAFAFA; }
+        select, input { padding: 12px; border-radius: 12px; border: 2px solid #F0F0F0; width: 100%; box-sizing: border-box; background: #FAFAFA; outline: none; }
         button.main-btn { background: linear-gradient(135deg, var(--primary), #FF6B81); color: white; border: none; cursor: pointer; font-weight: bold; padding: 14px; border-radius: 12px; font-size: 16px; width: 100%; margin-top: 10px; box-shadow: 0 5px 15px rgba(255,133,161,0.3); }
-        #map { height: 350px; width: 100%; border-radius: 20px; border: 3px solid #FFD1DC; margin-top: 10px; }
+        #map { height: 350px; width: 100%; border-radius: 20px; border: 3px solid #FFD1DC; margin-top: 10px; z-index: 1; }
+        .file-box { background: #FFF9FA; border: 3px dashed #FFD1DC; padding: 25px; text-align: center; border-radius: 20px; cursor: pointer; color: var(--primary); font-weight: bold; }
+        #fileStatus { margin-top: 10px; font-weight: bold; text-align: center; color: #50C878; }
+        .footer-info { font-size: 0.8em; color: #BBAAAA; text-align: center; margin-top: 20px; }
         .leaflet-tooltip-own { background: rgba(255, 255, 255, 0.7); border: 1px solid var(--primary); color: var(--primary); font-weight: bold; font-size: 11px; padding: 1px 3px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2><span>🗺️ 軌跡預覽 (回訪路徑校正)</span></h2>
+    <h2>
+        <span>🗺️ 路徑即時預覽 (酒紅線條)</span>
+        <button class="btn-pop" onclick="openFullMap()">🔍 全螢幕開啟地圖</button>
+    </h2>
     <div id="map"></div>
 </div>
 
 <div class="card">
-    <h2>🌺 皮克敏 GPX 生成器 V27</h2>
-    <textarea id="coordsInput" oninput="updatePreviewFromText()" placeholder="貼入座標點..."></textarea>
+    <h2>🌺 功能 1~3：路徑產生器</h2>
+    <label>🍭 請貼入原始座標 (緯度, 經度):</label>
+    <textarea id="coordsInput" oninput="updatePreviewFromText()" placeholder="例如：24.0545, 120.4320"></textarea>
+
     <div class="controls">
-        <div><label>📍 國家</label><input type="text" id="locName" value="土耳其"></div>
+        <div><label>📍 國家地名</label><input type="text" id="locName" value="土耳其"></div>
         <div><label>🆔 編號</label><input type="text" id="locID" value="01"></div>
-        <div><label>📏 Z 字偏移寬度 (m)</label><input type="number" id="radius" value="30" oninput="updatePreviewFromText()"></div>
+        <div><label>📏 偏移半徑 (m)</label><input type="number" id="radius" value="30" oninput="updatePreviewFromText()"></div>
         <div>
-            <label>🎡 運作模式</label>
+            <label>🎡 路徑模式</label>
             <select id="mode" onchange="updatePreviewFromText()">
-                <option value="z_pass2">種花 + 回訪兩次 (Z串) 🚀</option>
-                <option value="z_only">純種花模式 (Z) ⚡</option>
-                <option value="pass_only">純座標路徑 (果) 🚶</option>
+                <option value="z_scan_pass2">1. Z 掃描 + 2次直線回訪 (最新) ⚡</option>
+                <option value="flower_pass2">2. 六點圓形 + 2次直線回訪 (Z串) ✨</option>
+                <option value="flower_only">3. 純六點圓形模式 (Z) 🌺</option>
+                <option value="pass_only">4. 純座標路徑 (果) 🚶</option>
             </select>
         </div>
-        <button class="main-btn" onclick="generateGPX()">生成精確對齊的 GPX 🎀</button>
+        <button class="main-btn" onclick="generateGPX()">確認無誤，下載最終版 GPX 🎀</button>
     </div>
 </div>
 
+<div class="card">
+    <h2>☁️ 功能 4：GPX 轉換大師</h2>
+    <div class="file-box" onclick="document.getElementById('fileInput').click()">
+        ✨ 點擊上傳並預覽轉換 ✨
+        <input type="file" id="fileInput" accept=".gpx" style="display:none" onchange="convertAndPreview(this)">
+    </div>
+    <div id="fileStatus"></div>
+</div>
+
+<p class="footer-info">☁️ 支援酒紅路徑預覽 ‧ 自動生成對應檔名 ‧ 全螢幕檢視功能 ‧ 點位編號標籤 ☁️</p>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-var currentPathPoints = [], map = L.map('map').setView([23.5, 121], 6);
+var currentCoords = [];
+var currentPathPoints = [];
+var currentMode = 'z_scan_pass2';
+var map = L.map('map').setView([24.05, 120.43], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 var previewLayer = L.layerGroup().addTo(map);
 
 function getPathPoints(coords, mode, radius) {
     let pts = [];
-    let returnPoints = []; // 用於存儲回訪點
     if (coords.length === 0) return pts;
-
     const mid = [(coords[0].lat + coords[coords.length-1].lat) / 2, (coords[0].lon + coords[coords.length-1].lon) / 2];
     pts.push(mid);
 
     coords.forEach((c) => {
-        if (mode.includes('z')) {
-            const dLat = radius / 111320;
-            const dLon = radius / (111320 * Math.cos(c.lat * Math.PI / 180));
-
-            // Z 字點序：左上 -> 右下 -> 右上 -> 左下
-            pts.push([c.lat + dLat, c.lon - dLon]); 
-            pts.push([c.lat - dLat, c.lon + dLon]); 
-            pts.push([c.lat + dLat, c.lon + dLon]); 
-            const lastZ = [c.lat - dLat, c.lon - dLon];
-            pts.push(lastZ); // 左下 (最後一個 Z 點)
-            pts.push([c.lat, c.lon]); // 回中心準備接下一點
-            
-            // 重要：回訪點必須與 Z 字的點一致，這裡統一存儲中心座標，
-            // 或是依據您的需求，若回訪也要走 Z，則需另外設計。
-            // 目前修正為：回訪時直接回中心點，確保邏輯單純。
-            returnPoints.push([c.lat, c.lon]);
+        const dLat = radius / 111320;
+        const dLon = radius / (111320 * Math.cos(c.lat * Math.PI / 180));
+        if (mode === 'z_scan_pass2') {
+            pts.push([c.lat + dLat, c.lon - dLon], [c.lat - dLat, c.lon + dLon], [c.lat + dLat, c.lon + dLon], [c.lat - dLat, c.lon - dLon], [c.lat, c.lon]);
+        } else if (mode.includes('flower')) {
+            pts.push([c.lat, c.lon]);
+            [0, 60, 120, 180, 240, 300].forEach(a => {
+                const rad = (90 - a) * Math.PI / 180;
+                pts.push([c.lat + dLat * Math.sin(rad), c.lon + dLon * Math.cos(rad)]);
+            });
+            pts.push([c.lat, c.lon]);
         } else {
             pts.push([c.lat, c.lon]);
-            returnPoints.push([c.lat, c.lon]);
         }
     });
 
-    if (mode === 'z_pass2') {
-        // 回訪兩次：不再產生位移，完全重合
-        pts = pts.concat(returnPoints);
-        pts = pts.concat(returnPoints);
+    if (mode === 'z_scan_pass2' || mode === 'flower_pass2') {
+        coords.forEach(c => pts.push([c.lat, c.lon]));
+        coords.forEach(c => pts.push([c.lat, c.lon]));
     }
-
     pts.push(mid);
     return pts;
+}
+
+function updatePreview(coords, mode, radius) {
+    previewLayer.clearLayers();
+    currentCoords = coords;
+    currentMode = mode;
+    currentPathPoints = getPathPoints(coords, mode, radius);
+    if (currentPathPoints.length > 0) {
+        coords.forEach((c, i) => {
+            const label = (mode === 'pass_only') ? `T${i+1}` : `P${i+1}`;
+            L.circleMarker([c.lat, c.lon], {color: '#FF85A1', radius: 4, fillOpacity: 0.5})
+                .addTo(previewLayer).bindTooltip(label, {permanent: true, direction: 'right', className: 'leaflet-tooltip-own'});
+        });
+        L.polyline(currentPathPoints, {color: '#800000', weight: 3}).addTo(previewLayer);
+        map.fitBounds(L.polyline(currentPathPoints).getBounds(), {padding: [30, 30]});
+    }
 }
 
 function updatePreviewFromText() {
@@ -96,39 +127,47 @@ function updatePreviewFromText() {
     const mode = document.getElementById('mode').value;
     const radius = parseFloat(document.getElementById('radius').value) || 30;
     const coords = input.split('\n').map(l => {
-        const p = l.split(/[ ,]+/);
+        const p = l.split(/[\s,]+/);
         return p.length >= 2 ? { lat: parseFloat(p[0]), lon: parseFloat(p[1]) } : null;
     }).filter(c => c !== null);
+    updatePreview(coords, mode, radius);
+}
 
-    previewLayer.clearLayers();
-    currentPathPoints = getPathPoints(coords, mode, radius);
-    if (currentPathPoints.length > 0) {
-        coords.forEach((c, i) => {
-            L.circleMarker([c.lat, c.lon], {color: '#FF85A1', radius: 4}).addTo(previewLayer).bindTooltip(`P${(i+1)}`, {permanent:true, className:'leaflet-tooltip-own'});
+function convertAndPreview(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(e.target.result, "text/xml");
+        let nodes = xml.querySelectorAll("wpt, trkpt, rtept");
+        let coords = [];
+        nodes.forEach(n => {
+            const lat = parseFloat(n.getAttribute("lat")), lon = parseFloat(n.getAttribute("lon"));
+            if (!isNaN(lat) && !isNaN(lon)) coords.push({lat, lon});
         });
-        L.polyline(currentPathPoints, {color: '#800000', weight: 2}).addTo(previewLayer);
-        map.fitBounds(L.polyline(currentPathPoints).getBounds(), {padding: [30, 30]});
-    }
+        document.getElementById('coordsInput').value = coords.map(c => `${c.lat}, ${c.lon}`).join('\n');
+        updatePreview(coords, 'pass_only', 0);
+        document.getElementById('fileStatus').innerText = `✅ 成功載入 ${coords.length} 點！`;
+    };
+    reader.readAsText(file);
 }
 
 function generateGPX() {
-    const loc = document.getElementById('locName').value;
-    const id = document.getElementById('locID').value;
-    const mode = document.getElementById('mode').value;
-    const coords = document.getElementById('coordsInput').value.trim().split('\n').map(l => {
-        const p = l.split(/[ ,]+/);
-        return p.length >= 2 ? { lat: parseFloat(p[0]), lon: parseFloat(p[1]) } : null;
-    }).filter(c => c !== null);
-
-    const path = getPathPoints(coords, mode, parseFloat(document.getElementById('radius').value));
-    let body = path.map((pt, i) => `  <wpt lat="${pt[0].toFixed(8)}" lon="${pt[1].toFixed(8)}"><name>W${i}</name></wpt>`).join('\n');
-    
-    let suffix = (mode === "z_pass2") ? "_Z串" : (mode === "z_only" ? "_Z" : "苗(果)");
-    const fileName = `${loc}${id}_${coords.length}苗${suffix}.gpx`;
-    
-    const full = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="PikminGen_V27">\n${body}\n</gpx>`;
+    const loc = document.getElementById('locName').value, id = document.getElementById('locID').value, mode = document.getElementById('mode').value;
+    const path = currentPathPoints;
+    if (path.length === 0) return alert("請貼入座標 🌸");
+    const body = path.map((pt, i) => `  <wpt lat="${pt[0].toFixed(8)}" lon="${pt[1].toFixed(8)}"><name>W${i.toString().padStart(3,'0')}</name></wpt>`).join('\n');
+    let suffix = (mode === "pass_only") ? "_苗(果)" : (mode.includes("pass2") ? "_Z串" : "_Z");
+    const fileName = `${loc}${id}_${currentCoords.length}苗${suffix}.gpx`;
+    const full = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="V31_Final">\n${body}\n</gpx>`;
     const blob = new Blob([full], { type: 'application/gpx+xml' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fileName; a.click();
+}
+
+function openFullMap() {
+    const newWin = window.open("", "_blank");
+    newWin.document.write(`<html><head><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /><style>.leaflet-tooltip-own { background: rgba(255, 255, 255, 0.7); border: 1px solid #FF85A1; color: #FF85A1; font-weight: bold; font-size: 11px; padding: 1px 3px; border-radius: 4px; }</style></head><body style="margin:0;"><div id="m" style="height:100vh;"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script><script>var map=L.map('m');L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);var pts = ${JSON.stringify(currentPathPoints)}; var coords = ${JSON.stringify(currentCoords)}; L.polyline(pts,{color:'#800000',weight:4}).addTo(map); coords.forEach((c,i)=>{L.circleMarker([c.lat,c.lon],{color:'#FF85A1',radius:4}).addTo(map).bindTooltip("${currentMode==='pass_only'?'T':'P'}"+(i+1),{permanent:true,direction:'right',className:'leaflet-tooltip-own'});}); map.fitBounds(L.polyline(pts).getBounds());<\/script></body></html>`);
 }
 </script>
 </body>
